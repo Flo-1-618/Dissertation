@@ -176,7 +176,7 @@ Xr_xts <- as.xts(Xr_zoo)
 
 ## 1.5 Stationarity
 
--   S&P 500 returns
+-   S&P 500 returns 
 
 ```{r}
 Yr_stationarity_tests <- function(serie) {
@@ -361,7 +361,7 @@ summary(ur.kpss(Xr_xts$`MATCH GROUP`, type = "mu", use.lag = 1))
 
 ## 1.6 Data Visualizations
 
--   S&P 500 prices
+-   S&P 500 price (without outlier adjustment)
 
 ```{r}
 Y_graph <- Y |>
@@ -375,7 +375,7 @@ Y_graph <- Y |>
 Y_graph
 ```
 
--   S&P 500 returns
+-   S&P 500 return (with outlier adjustment)
 
 ```{r}
 Yr_xts_graph <- Yr_xts |>
@@ -391,7 +391,7 @@ Yr_xts_graph <- Yr_xts |>
 Yr_xts_graph
 ```
 
--   Stocks prices
+-   Stock prices (without outlier adjustment)
 
 ```{r}
 # Overlapping Prices of All Stocks
@@ -407,16 +407,16 @@ X_graph <- X |>
     y = price,
     group = stock
   )) +
-  geom_line(alpha = 0.2) +
+  geom_line() +
   labs(
     x = "Date",
-    y = "Price"
+    y = "Prices"
   ) +
   theme_bw()
 X_graph
 ```
 
--   Stocks returns
+-   Stock returns (with outlier adjustment)
 
 ```{r}
 # Overlapping Returns of All Stocks
@@ -439,7 +439,7 @@ Xr_xts_graph <- Xr_xts_long |>
   geom_line(alpha = 0.2) +
   labs(
     x = "Date",
-    y = "Return"
+    y = "Returns"
   ) +
   theme_bw()
 Xr_xts_graph
@@ -454,14 +454,14 @@ Xr_xts_long |>
 
 ### 1.7.1 Statistics
 
--   S&P 500 returns
+-   S&P 500 return
 
 ```{r}
 Yr_stats <- basicStats(Yr_xts)
 Yr_stats
 ```
 
--   Stocks returns
+-   Stock returns
 
 ```{r}
 Xr_stats <- basicStats(Xr_xts)
@@ -486,7 +486,7 @@ mean_returns_graph <- Xr_stats["Mean", ] |>
   geom_point() +
   labs(
     x = "Stock",
-    y = "Mean Return"
+    y = "Mean Daily Log Return"
   ) +
   theme_bw() +
   theme(
@@ -510,7 +510,7 @@ stdev_returns_graph <- Xr_stats["Stdev", ] |>
   geom_point() +
   labs(
     x = "Stock",
-    y = "Stdev Return"
+    y = "Standard Deviation of Daily Log Return"
   ) +
   theme_bw() +
   theme(
@@ -523,13 +523,13 @@ stdev_returns_graph
 
 ### 1.7.2 Normality
 
--   S&P 500 returns
+-   S&P 500 return
 
 ```{r}
 shapiro.test(as.numeric(Yr_xts$return))
 ```
 
--   Stocks returns
+-   Stock returns
 
 ```{r}
 Xr_normality_test <- map(names(Xr_xts), function(stock) {
@@ -588,7 +588,7 @@ Xr_correlation_results
 
 ### 1.9.1 ACF and PACF Analysis
 
--   S&P 500 returns
+-   S&P 500 return
 
 ```{r}
 # Number of observations
@@ -629,7 +629,10 @@ Yr_acf_graph <- Yr_autocorrelation |>
   geom_hline(aes(yintercept = ci), linetype = "dashed") +
   geom_hline(aes(yintercept = -ci), linetype = "dashed") +
   geom_hline(yintercept = 0, color = "black") +
-  ggtitle("ACF of S&P 500") +
+  labs(
+    x = "lags",
+    y = "ACF"
+  ) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
 
@@ -640,12 +643,15 @@ Yr_pacf_graph <- Yr_autocorrelation |>
   geom_hline(aes(yintercept = ci), linetype = "dashed") +
   geom_hline(aes(yintercept = -ci), linetype = "dashed") +
   geom_hline(yintercept = 0, color = "black") +
-  ggtitle("PACF of S&P 500") +
+  labs(
+    x = "lags",
+    y = "PACF"
+  ) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
 ```
 
--   Stocks returns
+-   Stock returns
 
 ```{r}
 # Compute ACF and PACF for each stock's return series
@@ -662,7 +668,10 @@ Xr_acf_graph <- Xr_autocorrelation |>
   geom_hline(aes(yintercept = ci), linetype = "dashed") +
   geom_hline(aes(yintercept = -ci), linetype = "dashed") +
   geom_hline(yintercept = 0) +
-  ggtitle("Superimposed ACFs of All Stocks") +
+  labs(
+    x = "lags",
+    y = "ACF"
+  ) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
 
@@ -673,7 +682,10 @@ Xr_pacf_graph <- Xr_autocorrelation |>
   geom_hline(aes(yintercept = ci), linetype = "dashed") +
   geom_hline(aes(yintercept = -ci), linetype = "dashed") +
   geom_hline(yintercept = 0) +
-  ggtitle("Superimposed PACFs of All Stocks") +
+  labs(
+    x = "lags",
+    y = "PACF"
+  ) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
 ```
@@ -720,7 +732,7 @@ Xr_lb_test <- names(Xr_xts) |>
 
 Xr_lb_test |>
   filter(decision == "Reject H0") |>
-  arrange(p_value)
+  arrange(desc(p_value))
 ```
 
 
@@ -752,7 +764,7 @@ lambda_grid <- 10^seq(-7, -2, length.out = 100) # Regularization strengths
 alpha_grid <- seq(0.05, 0.95, by = 0.05) # Elastic Net mixing values
 
 ridge_grid <- expand.grid(alpha = 0, lambda = lambda_grid) # Ridge: alpha = 0
-lasso_grid <- expand.grid(alpha = 1, lambda = lambda_grid) # LASSO: alpha = 1
+lasso_grid <- expand.grid(alpha = 1, lambda = lambda_grid) # Lasso: alpha = 1
 en1_grid <- expand.grid(alpha = 0.5, lambda = lambda_grid) # Elastic Net: alpha = 0.5
 en2_grid <- expand.grid(alpha = alpha_grid, lambda = lambda_grid) # Elastic Net
 ```
@@ -912,12 +924,12 @@ ridge_coefs <- ridge$model_coefs
 ridge_variables <- ridge$model_variables
 ```
 
-### 2.4.3 LASSO Regression (L1, non-negative)
+### 2.4.3 Lasso Regression (L1, non-negative)
 
 ```{r}
 set.seed(2103)
 
-# Cross-validated LASSO regression with L1 penalty and non-negativity constraint
+# Cross-validated Lasso regression with L1 penalty and non-negativity constraint
 lasso <- glmnet_function(YXr_mat, "lasso", lasso_grid)
 
 # Cross-validation results across all alpha–lambda combinations
@@ -931,7 +943,7 @@ lasso_plot <- plot_model(
   lasso_results,
   lasso_opt$alpha,
   lasso_opt$lambda,
-  "LASSO Regression",
+  "Lasso Regression",
   0.2,
   0.9
 )
@@ -1012,7 +1024,7 @@ en2_coefs <- en2$model_coefs
 en2_variables <- en2$model_variables
 ```
 
-### 2.4.6 Adaptive LASSO Regression (Non-Convex Penalized Regressions)
+### 2.4.6 Adaptive Lasso Regression (Non-Convex Penalized Regressions)
 
 ```{r}
 # Calculate penalty weights as the inverse of absolute Ridge coefficients, with small constant to avoid division by zero
@@ -1022,7 +1034,7 @@ ridge_penalty_weights <- 1 / (abs(ridge_coefs$ridge) + 1e-5)
 ```{r}
 set.seed(2103)
 
-# Cross-validated Adaptive LASSO regression with ridge penalty and non-negativity constraint
+# Cross-validated Adaptive Lasso regression with ridge penalty and non-negativity constraint
 adlasso <- glmnet_function(
   YXr_mat,
   "adlasso",
@@ -1041,7 +1053,7 @@ adlasso_plot <- plot_model(
   adlasso_results,
   adlasso_opt$alpha,
   adlasso_opt$lambda,
-  "Adaptive LASSO Regression",
+  "Adaptive Lasso Regression",
   0.2,
   0.9
 )
@@ -1104,7 +1116,7 @@ dcsis_glmnet_function <- function(regression, grid) {
 
       # --- Penalized Regression Model Fitting ---
 
-      # Penalty factors: adaptive LASSO uses Ridge-based weights; others use equal penalties
+      # Penalty factors: adaptive Lasso uses Ridge-based weights; others use equal penalties
 
       if (regression == "adlasso") {
         ridge <- glmnet_function(YXr_reduced, regression, ridge_grid)
@@ -1218,12 +1230,12 @@ ridge_dcsis_coefs <- ridge_dcsis$model_coefs
 ridge_dcsis_variables <- ridge_dcsis$model_variables
 ```
 
-### 2.5.2 LASSO Regression (L1, non-negative)
+### 2.5.2 Lasso Regression (L1, non-negative)
 
 ```{r}
 set.seed(2103)
 
-# Cross-validated LASSO regression with L1 penalty and non-negativity constraint
+# Cross-validated Lasso regression with L1 penalty and non-negativity constraint
 lasso_dcsis <- dcsis_glmnet_function("lasso_dcsis", lasso_grid)
 
 # Cross-validation results across all alpha–lambda combinations
@@ -1237,7 +1249,7 @@ lasso_dcsis_plot <- plot_model(
   lasso_dcsis_results,
   lasso_dcsis_opt$alpha,
   lasso_dcsis_opt$lambda,
-  "LASSO Regression (DC-SIS)",
+  "Lasso Regression (DC-SIS)",
   0.2,
   0.9
 )
@@ -1318,12 +1330,12 @@ en2_dcsis_coefs <- en2_dcsis$model_coefs
 en2_dcsis_variables <- en2_dcsis$model_variables
 ```
 
-### 2.5.5 Adaptive LASSO Regression (Non-Convex Penalized Regressions)
+### 2.5.5 Adaptive Lasso Regression (Non-Convex Penalized Regressions)
 
 ```{r}
 set.seed(2103)
 
-# Cross-validated Adaptive LASSO regression with ridge penalty and non-negativity constraint
+# Cross-validated Adaptive Lasso regression with ridge penalty and non-negativity constraint
 adlasso_dcsis <- dcsis_glmnet_function(
   "adlasso_dcsis",
   lasso_grid
@@ -1340,7 +1352,7 @@ adlasso_dcsis_plot <- plot_model(
   adlasso_dcsis_results,
   adlasso_dcsis_opt$alpha,
   adlasso_dcsis_opt$lambda,
-  "Adaptive LASSO Regression (DC-SIS)",
+  "Adaptive Lasso Regression (DC-SIS)",
   0.2,
   0.9
 )
@@ -1361,26 +1373,23 @@ adlasso_dcsis_variables <- adlasso_dcsis$model_variables
 ```{r}
 list_model_plots <- list(
   ridge_plot,
-  lasso_plot,
-  en1_plot,
-  en2_plot,
-  adlasso_plot,
   ridge_dcsis_plot,
+  lasso_plot,
   lasso_dcsis_plot,
+  en1_plot,
   en1_dcsis_plot,
+  en2_plot,
   en2_dcsis_plot,
+  adlasso_plot,
   adlasso_dcsis_plot
 )
 
 graph_plot_models <- list_model_plots |>
   split(ceiling(seq_along(list_model_plots) / 2)) |>
   map(~ wrap_plots(.x, ncol = 2))
-
-ggsave("my_plot.png", plot = graph_plot_models$`3`, width = 8, height = 5, dpi = 300)
 ```
-#
 
-### 2.6.2 Regularization Parameters Used
+### 2.6.2 Estimated Hyperparameters for Regularization Models
 
 ```{r}
 list_model_parameters <- list(
@@ -1423,29 +1432,7 @@ model_coefficients <- list_model_coefficients |>
   reduce(full_join, by = "stock")
 ```
 
-### 2.6.4 Number of Variables with Non-Zero Coefficients
-
-```{r}
-list_model_variables <- list(
-  ridge_variables,
-  lasso_variables,
-  en1_variables,
-  en2_variables,
-  adlasso_variables,
-  ridge_dcsis_variables,
-  lasso_dcsis_variables,
-  en1_dcsis_variables,
-  en2_dcsis_variables,
-  adlasso_dcsis_variables
-)
-
-model_variables <- list_model_variables |>
-  bind_cols()
-```
-
-# 3 Performance of Constructed Portfolios Relative to the Stock Index
-
-## 3.1 Portfolio Construction
+### 2.6.4 Selected Variables by Model
 
 ```{r}
 # Models
@@ -1462,16 +1449,51 @@ model_names <- c(
   "adlasso_dcsis"
 )
 
+model_variables <- map(
+  1:10,
+  ~ list_model_coefficients[[.x]] |> 
+    rename(weight = 2) |> 
+    filter(weight != 0) |>
+    select(stock)
+) |> 
+  set_names(model_names)
+```
+
+### 2.6.5 Number of Variables with Non-Zero Coefficients
+
+```{r}
+list_model_nb_variables <- list(
+  ridge_variables,
+  lasso_variables,
+  en1_variables,
+  en2_variables,
+  adlasso_variables,
+  ridge_dcsis_variables,
+  lasso_dcsis_variables,
+  en1_dcsis_variables,
+  en2_dcsis_variables,
+  adlasso_dcsis_variables
+)
+
+model_nb_variables <- list_model_nb_variables |>
+  bind_cols()
+```
+
+# 3 Performance of Constructed Portfolios Relative to the Stock Index
+
+## 3.1 Portfolio Construction
+
+```{r}
 # Index and stock returns
 YXr <- YXr_mat |> 
   as_tibble(rownames = "date") |> 
   mutate(date = as.Date(date))
 ```
 
-### 3.1.1 Compute the weight of ETF returns
+### 3.1.1 Compute the weight of stock returns for each ETF
 
 ```{r}
-ETF_str <- list_model_coefficients |>
+ETF_weight <- list_model_coefficients |>
   map(function(model) {
     coef_col <- model[[2]]
     model |>
@@ -1492,8 +1514,8 @@ ETF <- model_names |>
   set_names() |>
   map(function(model) {
     # Get stock symbols and their respective weights
-    stocks <- ETF_str[[model]]$stock
-    weights <- ETF_str[[model]]$weight_returns
+    stocks <- ETF_weight[[model]]$stock
+    weights <- ETF_weight[[model]]$weight_returns
 
     # Compute ETF returns
     ETF <- YXr |>
@@ -1521,28 +1543,54 @@ ETF <- model_names |>
   })
 ```
 
-### 3.1.3 Compute ETF's stock weighting
+### 3.1.3 Investment Value in Each Asset and Number of Shares to Purchase
 
 ```{r}
-ETF_weighting <- model_names |>
+# Compute investment values and number of shares for each model
+ETF_investment <- model_names |>
   set_names() |>
   map(function(model) {
-    # Get stock symbols
-    stocks <- ETF_str[[model]]$stock
+    
+    # Retrieve selected stocks and weights
+    etf_weight <- ETF_weight[[model]]
+    stocks <- etf_weight$stock
 
-    # Compute ETF weighting
-    X |>
-      select(date, all_of(stocks)) |> 
-      pivot_longer(
-        cols = -date,
-        names_to = "stock",
-        values_to = "stock_price"
-      ) |>
-      group_by(date) |>
-      mutate(weight = stock_price / sum(stock_price)) |>
-      select(date, stock, weight) |>
-      ungroup() |>
-      pivot_wider(names_from = stock, values_from = weight)
+    # Extract ETF price series
+    etf_price <- ETF[[model]] |> 
+      select(date, etf_price = price)
+    
+    # Extract stock price series for selected stocks
+    stock_prices <- X |> 
+      select(date, all_of(stocks))
+    
+    # Reshape stock prices to long format
+    stock_prices_long <- stock_prices |>
+      pivot_longer(-date, names_to = "stock", values_to = "stock_price")
+    
+    # Merge stock prices, weights, and ETF prices
+    investments <- stock_prices_long |>
+      left_join(etf_weight, by = "stock") |>
+      left_join(etf_price, by = "date") |>
+      mutate(
+        investment_value = weight_returns * etf_price,
+        shares_number = investment_value / stock_price
+      )
+    
+    # Reshape investment values to wide format
+    investment_value <- investments |>
+      select(date, stock, investment_value) |>
+      pivot_wider(names_from = stock, values_from = investment_value)
+
+    # Reshape number of shares to wide format
+    shares_number <- investments |>
+      select(date, stock, shares_number) |>
+      pivot_wider(names_from = stock, values_from = shares_number)
+
+    # Return results
+    list(
+      investment_value = investment_value,
+      shares_number = shares_number
+    )
   })
 ```
 
