@@ -53,7 +53,7 @@ head(Y, n = 20)
 str(Y)
 ```
 
--   Stocks returns
+-   Stocks
 
 ```{r}
 X <- read_excel("data/base_index_tracking.xlsx")
@@ -104,13 +104,13 @@ length(X$date)
 
 ## 1.2 Missing Values
 
--   S&P 500 returns
+-   S&P 500 return
 
 ```{r}
 sum(is.na(Y))
 ```
 
--   Stocks returns
+-   Stock returns
 
 ```{r}
 sum(is.na(X))
@@ -153,7 +153,7 @@ Xr_xts <- Return.calculate(X_xts, method = c("log"))
 
 ## 1.4 Outliers
 
--   S&P 500 returns
+-   S&P 500 return
 
 ```{r}
 # Boudt method: robust detection and adjustment of multivariate outliers
@@ -161,7 +161,7 @@ Yr_zoo <- Return.clean(Yr_xts, method = "boudt")
 Yr_xts <- as.xts(Yr_zoo)
 ```
 
--   Stocks returns
+-   Stock returns
 
 ```{r}
 # Xr_zoo <- Return.clean(Xr_xts, method = "boudt")
@@ -176,7 +176,7 @@ Xr_xts <- as.xts(Xr_zoo)
 
 ## 1.5 Stationarity
 
--   S&P 500 returns 
+-   S&P 500 return 
 
 ```{r}
 Yr_stationarity_tests <- function(serie) {
@@ -264,7 +264,7 @@ Yr_stationarity$stationarity
 Yr_stationarity$lags
 ```
 
--   Stocks returns
+-   Stock returns
 
 ```{r}
 Xr_stationarity_tests <- map(names(Xr_xts), function(stock) {
@@ -359,7 +359,7 @@ summary(ur.kpss(Xr_xts$`GENERAL ELECTRIC`, type = "mu", use.lag = 1))
 summary(ur.kpss(Xr_xts$`MATCH GROUP`, type = "mu", use.lag = 1))
 ```
 
-## 1.6 Data Visualizations
+## 1.6 Data Visualization
 
 -   S&P 500 price (without outlier adjustment)
 
@@ -734,7 +734,6 @@ Xr_lb_test |>
   filter(decision == "Reject H0") |>
   arrange(desc(p_value))
 ```
-
 
 # 2 Variable Selection
 
@@ -1118,10 +1117,10 @@ dcsis_glmnet_function <- function(regression, grid) {
 
       # Penalty factors: adaptive Lasso uses Ridge-based weights; others use equal penalties
 
-      if (regression == "adlasso") {
-        ridge <- glmnet_function(YXr_reduced, regression, ridge_grid)
-        ridge_coefs <- ridge$model_coefs$method
-        penalty_factor <- 1 / (abs(ridge_coefs) + 1e-5)
+      if (regression == "adlasso_dcsis") {
+        ridge <- glmnet_function(YXr_reduced, "ridge", ridge_grid)
+        ridge_coefs <- ridge$model_coefs
+        penalty_factor <- 1 / (abs(ridge_coefs$ridge) + 1e-5)
       } else {
         penalty_factor <- rep(1, ncol(YXr_reduced) - 1)
       }
@@ -1184,15 +1183,20 @@ dcsis_glmnet_function <- function(regression, grid) {
       by = c("fold", "alpha", "lambda", "RMSE", "Rsquared", "MAE")
     ) # Add aggregated SD metrics
 
-
   # Identify best-performing fold based on lowest RMSE
   best_fold <- best_model_results |>
     filter(RMSE == min(RMSE)) |>
     select(fold) |>
     pull()
+  
+  # Add SD metrics to CV results list
+  dcsis_glmnet_best_fold <- list_modify(
+    dcsis_glmnet[[best_fold]],
+    model_results = sd_metrics |> filter(fold == best_fold)
+  )
 
   # Return full results for best fold
-  return(dcsis_glmnet[[best_fold]])
+  return(dcsis_glmnet_best_fold)
 }
 ```
 
@@ -1283,7 +1287,7 @@ en1_dcsis_plot <- plot_model(
   en1_dcsis_results,
   en1_dcsis_opt$alpha,
   en1_dcsis_opt$lambda,
-  "Elastic Net Regression (alpha = 0.5, DC-SIS)",
+  "Elastic Net Regression (DC-SIS) (alpha = 0.5)",
   0.2,
   0.9
 )
@@ -1432,6 +1436,13 @@ model_coefficients <- list_model_coefficients |>
   reduce(full_join, by = "stock")
 ```
 
+```{r}
+# Non-identical coefficients
+
+model_coefficients |> 
+  slice(9, 10)
+```
+
 ### 2.6.4 Selected Variables by Model
 
 ```{r}
@@ -1444,12 +1455,12 @@ model_names <- c(
   "adlasso",
   "ridge_dcsis",
   "lasso_dcsis",
-  "en_dcsis1",
-  "en_dcsis2",
+  "en1_dcsis",
+  "en2_dcsis",
   "adlasso_dcsis"
 )
 
-model_variables <- map(
+model_stocks <- map(
   1:10,
   ~ list_model_coefficients[[.x]] |> 
     rename(weight = 2) |> 
@@ -1457,6 +1468,49 @@ model_variables <- map(
     select(stock)
 ) |> 
   set_names(model_names)
+```
+
+```{r}
+# Models selecting the same variables
+
+model_same_stocks <- combn(model_names, 2) |>  
+  t() |> 
+  as_tibble() |> 
+  mutate(
+    identical = map2_lgl(
+      V1, 
+      V2, 
+      ~ identical(
+        model_stocks[[.x]], 
+        model_stocks[[.y]]
+      )
+    )
+  ) |> 
+  filter(identical)
+
+# lasso, en1 and en2
+# lasso_dcsis, en1_dcsis, en2_dcsis
+```
+
+```{r}
+# 484 stock names
+all_stocks <- names(X)[-1]
+
+# Matrix: 1 if stock selected by model, 0 otherwise
+
+model_stock_selection <- tibble(stock = all_stocks) |> 
+  bind_cols(
+    model_names |> 
+      map(~ as.integer(
+        all_stocks %in% model_stocks[[.x]]$stock
+      )) |> 
+      set_names(model_names) |> 
+      as_tibble()
+  ) |> 
+  # Keep stocks selected in any model
+  filter(rowSums(across(all_of(model_names))) > 0) |> 
+  # Keep models with different variable selections
+  select(stock,ridge, lasso, adlasso, ridge_dcsis, lasso_dcsis)
 ```
 
 ### 2.6.5 Number of Variables with Non-Zero Coefficients
@@ -1652,34 +1706,34 @@ performance <- names(data_performance_xts) |>
     if (data_name %in% names(ETFr_arithm)) {
       Ra <- data_performance_xts[, data_name]
 
-      active_return <- ActiveReturn(Ra, Rb)
-      beta <- CAPM.beta(Ra, Rb, Rf = Rf)
-      compound_return <- Return.annualized(Ra)
-      correlation <- cor(Ra, Rb)
-      cumulative_return <- Return.cumulative(Ra)
-      info_ratio <- InformationRatio(Ra, Rb)
-      jensen_alpha <- mean(CAPM.jensenAlpha(Ra, Rb, Rf = Rf))
-      sharpe <- SharpeRatio(Ra, Rf = Rf, FUN = "StdDev")[, 1]
-      sortino <- SortinoRatio(Ra, MAR = Rf)[, 1]
-      tracking_error <- TrackingError(Ra, Rb)
-      treynor <- TreynorRatio(Ra, Rb, Rf = Rf)
-      volatility <- StdDev(Ra)
+      active_return     <- ActiveReturn(Ra, Rb)
+      beta              <- CAPM.beta(Ra, Rb, Rf = Rf)
+      # compound_return   <- Return.annualized(Ra)
+      correlation       <- cor(Ra, Rb)
+      # cumulative_return <- Return.cumulative(Ra)
+      info_ratio        <- InformationRatio(Ra, Rb)
+      jensen_alpha      <- mean(CAPM.jensenAlpha(Ra, Rb, Rf = Rf))
+      # sharpe            <- SharpeRatio(Ra, Rf = Rf, FUN = "StdDev")[, 1]
+      # sortino           <- SortinoRatio(Ra, MAR = Rf)[, 1]
+      tracking_error    <- TrackingError(Ra, Rb)
+      # treynor           <- TreynorRatio(Ra, Rb, Rf = Rf)
+      # volatility        <- StdDev(Ra)
     }
 
     # Compute metrics for the S&P 500
     else if (data_name == "sp500") {
-      active_return <- 0
-      beta <- 1
-      compound_return <- Return.annualized(Rb)
-      correlation <- 1
-      cumulative_return <- Return.cumulative(Rb)
-      info_ratio <- NA_real_
-      jensen_alpha <- 0
-      sharpe <- SharpeRatio(Rb, Rf = Rf, FUN = "StdDev")[, 1]
-      sortino <- SortinoRatio(Rb, MAR = Rf)[, 1]
-      tracking_error <- NA_real_
-      treynor <- TreynorRatio(Rb, Rb, Rf = Rf)
-      volatility <- StdDev(Rb)
+      active_return     <- 0
+      beta              <- 1
+      # compound_return   <- Return.annualized(Rb)
+      correlation       <- 1
+      # cumulative_return <- Return.cumulative(Rb)
+      info_ratio        <- NA_real_
+      jensen_alpha      <- 0
+      # sharpe            <- SharpeRatio(Rb, Rf = Rf, FUN = "StdDev")[, 1]
+      # sortino           <- SortinoRatio(Rb, MAR = Rf)[, 1]
+      tracking_error    <- NA_real_
+      # treynor           <- TreynorRatio(Rb, Rb, Rf = Rf)
+      # volatility        <- StdDev(Rb)
     } else {
       return(NULL)
     }
@@ -1688,16 +1742,16 @@ performance <- names(data_performance_xts) |>
       Index_ETF         = data_name,
       Active_Return     = as.numeric(active_return),
       Beta              = as.numeric(beta),
-      Compound_return   = as.numeric(compound_return),
+      # Compound_return   = as.numeric(compound_return),
       Correlation_SP500 = as.numeric(correlation),
-      Cumulative_Return = as.numeric(cumulative_return),
+      # Cumulative_Return = as.numeric(cumulative_return),
       Information_Ratio = as.numeric(info_ratio),
       Jensen_Alpha      = as.numeric(jensen_alpha),
-      Sharpe_Ratio      = as.numeric(sharpe),
-      Sortino_Ratio     = as.numeric(sortino),
+      # Sharpe_Ratio      = as.numeric(sharpe),
+      # Sortino_Ratio     = as.numeric(sortino),
       Tracking_Error    = as.numeric(tracking_error),
-      Treynor_Ratio     = as.numeric(treynor),
-      Volatility        = as.numeric(volatility)
+      # Treynor_Ratio     = as.numeric(treynor),
+      # Volatility        = as.numeric(volatility)
     )
   }) |>
   bind_rows()
@@ -1714,16 +1768,16 @@ performance_ranked <- performance |>
   mutate(
     Active_Return     = rank(-Active_Return),
     Beta              = rank(abs(Beta - 1)), # closer to 1 is better
-    Compound_return   = rank(-Compound_return),
+    # Compound_return   = rank(-Compound_return),
     Correlation_SP500 = rank(-Correlation_SP500),
-    Cumulative_Return = rank(-Cumulative_Return),
+    # Cumulative_Return = rank(-Cumulative_Return),
     Information_Ratio = rank(-Information_Ratio),
     Jensen_Alpha      = rank(-Jensen_Alpha),
-    Sharpe_Ratio      = rank(-Sharpe_Ratio),
-    Sortino_Ratio     = rank(-Sortino_Ratio),
+    # Sharpe_Ratio      = rank(-Sharpe_Ratio),
+    # Sortino_Ratio     = rank(-Sortino_Ratio),
     Tracking_Error    = rank(Tracking_Error), # lower is better
-    Treynor_Ratio     = rank(-Treynor_Ratio),
-    Volatility        = rank(Volatility) # lower is better
+    # Treynor_Ratio     = rank(-Treynor_Ratio),
+    # Volatility        = rank(Volatility) # lower is better
   ) |>
   rowwise() |>
   mutate(
